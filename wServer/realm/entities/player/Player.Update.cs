@@ -313,7 +313,7 @@ namespace wServer.realm.entities
             {
                 var packet = new UpdatePacket();
                 packet.Tiles = list.ToArray();
-                packet.NewObjects = sendEntities.Select(_ => _.ToDefinition()).Concat(newStatics).ToArray();
+                packet.NewObjects = sendEntities.Select(_ => _.ToDefinition(Id)).Concat(newStatics).ToArray();
                 packet.RemovedObjectIds = dropEntities.Concat(removedIds).ToArray();
                 client.SendPacket(packet);
             }
@@ -337,11 +337,13 @@ namespace wServer.realm.entities
                 sendEntities.Add(questEntity);
                 lastUpdate[questEntity] = questEntity.UpdateCount;
             }
-            var p = new NewTickPacket();
             tickId++;
-            p.TickId = tickId;
-            p.TickTime = time.thisTickTimes;
-            p.UpdateStatuses = sendEntities.Select(_ => _.ExportStats()).ToArray();
+            var p = new NewTickPacket
+            {
+                TickId = tickId,
+                TickTime = time.thisTickTimes,
+                UpdateStatuses = sendEntities.Select(_ => _.ExportStats(Id)).ToArray()
+            };
             client.SendPacket(p);
         }
     }

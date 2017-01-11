@@ -35,6 +35,7 @@ namespace wServer.realm
             Manager = manager;
             isPet = false;
             manager.Behaviors.ResolveBehavior(this);
+            prevStats = new Dictionary<int, Dictionary<StatsType, object>>();
 
             manager.GameData.ObjectDescs.TryGetValue(ObjectType, out desc);
             if (desc != null && (desc.Player || desc.Enemy))
@@ -110,15 +111,51 @@ namespace wServer.realm
             stats[StatsType.Effects] = (int) ConditionEffects;
         }
 
-        public ObjectStats ExportStats()
+        private Dictionary<int, Dictionary<StatsType, object>> prevStats;
+
+        public ObjectStats ExportStats(int requester)
         {
-            var stats = new Dictionary<StatsType, object>();
-            ExportStats(stats);
+            var name = string.IsNullOrWhiteSpace(Name) ? "(no name)" : Name;
+            log.Info($"[{name} ({Id}) -> {requester}] exporting stats");
+            var newStats = new Dictionary<StatsType, object>();
+            ExportStats(newStats);
+
+            var sendStats = new Dictionary<StatsType, object>();
+
+            if (prevStats.ContainsKey(requester))
+            {
+                log.Info($"[{name} ({Id}) -> {requester}] found requester");
+                if (prevStats[requester].Count > 0)
+                {
+                    log.Info($"[{name} ({Id}) -> {requester}] found stats");
+                    foreach (var oldStat in prevStats[requester])
+                    {
+                        if (Equals(prevStats[requester][oldStat.Key], newStats[oldStat.Key])) continue;
+                        log.Info($"[{name} ({Id}) -> {requester}] {oldStat.Key} is different ({oldStat.Value} -> {newStats[oldStat.Key]})");
+                        sendStats[oldStat.Key] = newStats[oldStat.Key];
+                    }
+                }
+                else
+                {
+                    log.Info($"[{name} ({Id}) -> {requester}] couldnt find stats, added");
+                    sendStats = newStats;
+                }
+            }
+            else
+            {
+                log.Info($"[{name} ({Id}) -> {requester}] couldnt find requester, added");
+                prevStats.Add(requester, newStats);
+                sendStats = newStats;
+                log.Info($"[{name} ({Id}) -> {requester}] added {newStats.Count} stats");
+            }
+
+            log.Info($"[{name} ({Id}) -> {requester}] sending {sendStats.Count} stats");
+            prevStats[requester] = prevStats[requester].AddOrUpdate(sendStats);
             return new ObjectStats
             {
                 Id = Id,
                 Position = new Position {X = X, Y = Y},
-                Stats = stats.ToArray()
+                Stats = sendStats.ToArray()
             };
         }
 
@@ -133,14 +170,15 @@ namespace wServer.realm
             Parent = null;
             projectiles = null;
             posHistory = null;
+            prevStats = null;
         }
 
-        public ObjectDef ToDefinition()
+        public ObjectDef ToDefinition(int requester)
         {
             return new ObjectDef
             {
                 ObjectType = ObjectType,
-                Stats = ExportStats()
+                Stats = ExportStats(requester)
             };
         }
 

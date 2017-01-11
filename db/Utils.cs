@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -89,5 +90,26 @@ public static class Utils
                 Encoding.UTF8.GetBytes(str)
                 )
             );
+    }
+
+    public static Dictionary<TKey, TValue> Clone<TKey, TValue>(this Dictionary<TKey, TValue> source)
+    {
+        var ret = new Dictionary<TKey, TValue>(source.Count, source.Comparer);
+        foreach (var kvp in source)
+            ret.Add(kvp.Key, kvp.Value);
+        return ret;
+    }
+
+    public static Dictionary<TKey, TValue> AddOrUpdate<TKey, TValue>(this Dictionary<TKey, TValue> source,
+        Dictionary<TKey, TValue> dict)
+    {
+        var ret = source.Clone();
+        foreach (var kvp in dict)
+        {
+            if (!ret.ContainsKey(kvp.Key))
+                ret.Add(kvp.Key, kvp.Value);
+            else ret[kvp.Key] = kvp.Value;
+        }
+        return ret;
     }
 }
